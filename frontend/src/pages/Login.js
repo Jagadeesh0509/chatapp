@@ -19,11 +19,30 @@ export default function Login() {
 
     try {
       const response = await authService.login(email, password);
-      const { token, user } = response.data;
+      // Handle both old format (token in response.data) and new format (token in response.data.data)
+      const responseData = response.data.data || response.data;
+      const { token, user } = responseData;
+      
+      if (!token || !user) {
+        setError('Invalid response from server');
+        console.error('Invalid response structure:', response.data);
+        return;
+      }
+      
       login(user, token);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      // Handle both old and new error formats
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          err.message || 
+                          'Login failed';
+      setError(errorMessage);
+      console.error('Login error details:', {
+        status: err.response?.status,
+        message: errorMessage,
+        response: err.response?.data
+      });
     } finally {
       setLoading(false);
     }

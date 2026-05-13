@@ -91,6 +91,14 @@ export default function ChatWindow() {
     setSelectedUsers(newSelected);
   };
 
+  const title = currentRoom
+    ? currentRoom.name
+    : currentConversation
+      ? currentConversation.title ||
+        currentConversation.participant?.username ||
+        'Conversation'
+      : 'Select a chat';
+
   return (
     <div className="chat-window">
       <div className="chat-header">

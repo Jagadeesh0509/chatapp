@@ -302,3 +302,88 @@ textarea::placeholder {
   border-radius: 6px;
   margin-bottom: 16px;
 }
+
+/* ============ ERROR BOUNDARY ============ */
+.error-boundary {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--bg-secondary);
+  padding: 20px;
+}
+
+.error-container {
+  background-color: var(--bg-primary);
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 500px;
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.error-container h2 {
+  color: var(--error-color);
+  margin-bottom: 12px;
+}
+
+.error-message {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.error-details {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.error-details summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-primary);
+  padding: 8px;
+}
+
+.error-details pre {
+  background-color: #f5f5f5;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.error-details code {
+  font-family: 'Courier New', monospace;
+  color: var(--error-color);
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.error-actions button {
+  flex: 1;
+  padding: 12px 20px;
+}
+
+.error-warning {
+  color: var(--warning-color);
+  font-size: 14px;
+  margin-top: 16px;
+  font-weight: 500;
+}

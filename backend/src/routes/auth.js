@@ -2,6 +2,8 @@ const express = require('express');
 const { validationResult, body } = require('express-validator');
 const TokenManager = require('../utils/tokenManager');
 const PasswordManager = require('../utils/passwordManager');
+const { sendSuccess, sendError, sendValidationError } = require('../utils/apiResponse');
+const { validateRegistration, validateLogin } = require('../utils/validation');
 
 function createAuthRoutes(db) {
   const router = express.Router();
@@ -15,13 +17,20 @@ function createAuthRoutes(db) {
       body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
     ],
     async (req, res) => {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
       try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return sendValidationError(res, errors.array());
+        }
+
         const { username, email, password } = req.body;
+
+        // Additional custom validation
+        try {
+          validateRegistration(username, email, password);
+        } catch (validationError) {
+          return sendValidationError(res, validationError.errors);
+        }
 
         // Check if user already exists
         const existingUser = await db.get(
@@ -30,7 +39,7 @@ function createAuthRoutes(db) {
         );
 
         if (existingUser) {
-          return res.status(409).json({ error: 'User already exists' });
+          return sendError(res, 'User already exists with this username or email', 409);
         }
 
         // Hash password and create user
@@ -46,14 +55,13 @@ function createAuthRoutes(db) {
           email
         });
 
-        res.status(201).json({
-          message: 'User registered successfully',
+        sendSuccess(res, {
           token,
           user: { id: result.id, username, email }
-        });
+        }, 'User registered successfully', 201);
       } catch (error) {
         console.error('Registration error:', error);
-        res.status(500).json({ error: 'Registration failed' });
+        sendError(res, 'Registration failed', 500);
       }
     }
   );
@@ -66,13 +74,20 @@ function createAuthRoutes(db) {
       body('password').exists().withMessage('Password required')
     ],
     async (req, res) => {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
       try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return sendValidationError(res, errors.array());
+        }
+
         const { email, password } = req.body;
+
+        // Additional custom validation
+        try {
+          validateLogin(email, password);
+        } catch (validationError) {
+          return sendValidationError(res, validationError.errors);
+        }
 
         const user = await db.get(
           'SELECT id, username, email, password_hash FROM users WHERE email = ?',
@@ -80,12 +95,12 @@ function createAuthRoutes(db) {
         );
 
         if (!user) {
-          return res.status(401).json({ error: 'Invalid credentials' });
+          return sendError(res, 'Invalid email or password', 401);
         }
 
         const isPasswordValid = await PasswordManager.verifyPassword(password, user.password_hash);
         if (!isPasswordValid) {
-          return res.status(401).json({ error: 'Invalid credentials' });
+          return sendError(res, 'Invalid email or password', 401);
         }
 
         // Update user status to online
@@ -97,14 +112,13 @@ function createAuthRoutes(db) {
           email: user.email
         });
 
-        res.json({
-          message: 'Login successful',
+        sendSuccess(res, {
           token,
           user: { id: user.id, username: user.username, email: user.email }
-        });
+        }, 'Login successful');
       } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Login failed' });
+        sendError(res, 'Login failed', 500);
       }
     }
   );
@@ -116,9 +130,10 @@ function createAuthRoutes(db) {
       if (userId) {
         await db.run('UPDATE users SET status = ? WHERE id = ?', ['offline', userId]);
       }
-      res.json({ message: 'Logged out successfully' });
+      sendSuccess(res, null, 'Logged out successfully');
     } catch (error) {
-      res.status(500).json({ error: 'Logout failed' });
+      console.error('Logout error:', error);
+      sendError(res, 'Logout failed', 500);
     }
   });
 

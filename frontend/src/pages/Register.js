@@ -27,11 +27,41 @@ export default function Register() {
 
     try {
       const response = await authService.register(username, email, password);
-      const { token, user } = response.data;
+      // Handle both old format and new format with standardized response
+      const responseData = response.data.data || response.data;
+      const { token, user } = responseData;
+      
+      if (!token || !user) {
+        setError('Invalid response from server');
+        console.error('Invalid response structure:', response.data);
+        return;
+      }
+      
       login(user, token);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.errors?.[0]?.msg || err.response?.data?.error || 'Registration failed');
+      // Handle field-level validation errors and standard errors
+      let errorMessage = 'Registration failed';
+      
+      if (err.response?.data?.errors) {
+        // If it's an array of validation errors
+        if (Array.isArray(err.response.data.errors)) {
+          errorMessage = err.response.data.errors[0]?.msg || err.response.data.errors[0]?.message || errorMessage;
+        } else if (typeof err.response.data.errors === 'object') {
+          // If it's an object with field-level errors
+          const firstError = Object.values(err.response.data.errors)[0];
+          errorMessage = firstError || errorMessage;
+        }
+      } else {
+        errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || errorMessage;
+      }
+      
+      setError(errorMessage);
+      console.error('Registration error details:', {
+        status: err.response?.status,
+        message: errorMessage,
+        response: err.response?.data
+      });
     } finally {
       setLoading(false);
     }

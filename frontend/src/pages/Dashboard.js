@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, Suspense, lazy } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useChat } from '../context/ChatContext';
 import {
   conversationService,
@@ -16,6 +17,10 @@ import UserList from '../components/UserList';
 import '../styles/dashboard.css';
 import '../styles/friendsPanel.css';
 import '../styles/settingsPanel.css';
+
+// Valid dashboard sections
+const VALID_SECTIONS = ['chats', 'friends', 'settings'];
+const DEFAULT_SECTION = 'chats';
 
 export default function Dashboard() {
   const {
@@ -39,15 +44,28 @@ export default function Dashboard() {
     clearNotifications
   } = useChat();
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomDescription, setNewRoomDescription] = useState('');
   const [newRoomIsPublic, setNewRoomIsPublic] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState('chats');
   const [activeTab, setActiveTab] = useState('rooms');
   const [allUsers, setAllUsers] = useState([]);
   const [chatSearch, setChatSearch] = useState('');
+
+  // Get activeSection from URL params, validate it
+  const activeSection = useMemo(() => {
+    const section = searchParams.get('section') || DEFAULT_SECTION;
+    return VALID_SECTIONS.includes(section) ? section : DEFAULT_SECTION;
+  }, [searchParams]);
+
+  // Update URL when section changes
+  const handleSectionChange = useCallback((section) => {
+    if (VALID_SECTIONS.includes(section)) {
+      setSearchParams({ section });
+    }
+  }, [setSearchParams]);
 
   const mergedUsers = useMemo(() => {
     return allUsers.map((listedUser) => {
@@ -248,7 +266,7 @@ export default function Dashboard() {
         return [decoratedConversation, ...prev];
       });
 
-      setActiveSection('friends');
+      handleSectionChange('friends');
       await handleSelectConversation(decoratedConversation);
     } catch (error) {
       console.error('Error starting conversation:', error);
@@ -279,7 +297,7 @@ export default function Dashboard() {
       <Sidebar
         user={user}
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
         notifications={notifications}
         onClearNotifications={handleClearNotifications}
       />

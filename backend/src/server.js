@@ -6,6 +6,7 @@ const cors = require('cors');
 const Database = require('./db/database');
 const socketAuthMiddleware = require('./middleware/socketAuth');
 const authMiddleware = require('./middleware/auth');
+const errorMiddleware = require('./middleware/errorHandler');
 const createAuthRoutes = require('./routes/auth');
 const createUserRoutes = require('./routes/users');
 const createRoomRoutes = require('./routes/rooms');
@@ -30,6 +31,20 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true
 }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const level = res.statusCode >= 400 ? 'error' : 'info';
+    const logMessage = `[${level.toUpperCase()}] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`;
+    if (process.env.NODE_ENV === 'development') {
+      console.log(logMessage);
+    }
+  });
+  next();
+});
 
 const PORT = process.env.PORT || 5000;
 const DB_PATH = process.env.DATABASE_URL || './data/chat_app.db';
@@ -72,6 +87,18 @@ async function startServer() {
     app.get('/api/health', (req, res) => {
       res.json({ status: 'OK', timestamp: new Date().toISOString() });
     });
+
+    // 404 handler
+    app.use((req, res) => {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'The requested endpoint does not exist',
+        path: req.originalUrl
+      });
+    });
+
+    // Error handling middleware (must be last)
+    app.use(errorMiddleware);
 
     server.listen(PORT, () => {
       console.log(`✓ Server running on http://localhost:${PORT}`);
