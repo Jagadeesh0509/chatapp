@@ -1,0 +1,83 @@
+/* ============ ROOM INVITATIONS ============ */
+.room-invitations {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.invitations-header {
+  background: #ffc107;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ffb700;
+}
+
+.invitations-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #000;
+}
+
+.invitations-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.invitation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.invitation-item:last-child {
+  border-bottom: none;
+}
+
+.invitation-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.invitation-from {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.invitation-time {
+  margin: 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.invitation-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.invitation-actions .btn {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+@media (max-width: 768px) {
+  .invitation-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .invitation-actions {
+    margin-left: 0;
+    margin-top: 8px;
+    width: 100%;
+  }
+
+  .invitation-actions .btn {
+    flex: 1;
+  }
+}
