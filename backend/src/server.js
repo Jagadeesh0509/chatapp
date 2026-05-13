@@ -1,48 +1,76 @@
 require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+
 const Database = require('./db/database');
 const socketAuthMiddleware = require('./middleware/socketAuth');
 const authMiddleware = require('./middleware/auth');
 const errorMiddleware = require('./middleware/errorHandler');
+
 const createAuthRoutes = require('./routes/auth');
 const createUserRoutes = require('./routes/users');
 const createRoomRoutes = require('./routes/rooms');
 const createMessageRoutes = require('./routes/messages');
 const createConversationRoutes = require('./routes/conversations');
+
 const createSocketHandlers = require('./handlers/socketHandlers');
 const { initializeDatabase } = require('./db/init');
 
 const app = express();
 const server = http.createServer(app);
+
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://symmetrical-potato-qrvxwqg6p7c4xjr-3000.app.github.dev'
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow tools like curl/Postman and same-origin requests
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(null, true); // temporary allow-all for your deadline
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204
+};
+
+// Socket.io
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    methods: ['GET', 'POST'],
-    credentials: true
+    origin: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
   }
 });
 
 // Middleware
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true
-}));
 
-// Request logging middleware
+// Request logger
 app.use((req, res, next) => {
   const start = Date.now();
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     const level = res.statusCode >= 400 ? 'error' : 'info';
     const logMessage = `[${level.toUpperCase()}] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`;
+
     if (process.env.NODE_ENV === 'development') {
       console.log(logMessage);
     }
   });
+
   next();
 });
 
@@ -51,58 +79,61 @@ const DB_PATH = process.env.DATABASE_URL || './data/chat_app.db';
 
 let db;
 
-// Initialize database and start server
 async function startServer() {
   try {
     console.log('Initializing database...');
     await initializeDatabase();
+    console.log('✓ Database initialization completed successfully');
 
     db = new Database(DB_PATH);
     await db.open();
     console.log('Database opened successfully');
 
-    // Setup Socket.io authentication middleware
     io.use(socketAuthMiddleware);
-
-    // Setup Socket.io handlers
     createSocketHandlers(io, db);
 
-    // Routes - Register/login are public, remaining auth routes require a token.
     const authRoutes = createAuthRoutes(db);
 
-    app.use('/api/auth', (req, res, next) => {
-      // Register and login don't need auth
-      if (req.path === '/register' || req.path === '/login') {
-        return next();
-      }
-      authMiddleware(req, res, next);
-    }, authRoutes);
+    app.use(
+      '/api/auth',
+      (req, res, next) => {
+        if (req.path === '/register' || req.path === '/login') {
+          return next();
+        }
+        authMiddleware(req, res, next);
+      },
+      authRoutes
+    );
 
     app.use('/api/users', authMiddleware, createUserRoutes(db));
     app.use('/api/rooms', authMiddleware, createRoomRoutes(db));
     app.use('/api/messages', authMiddleware, createMessageRoutes(db));
     app.use('/api/conversations', authMiddleware, createConversationRoutes(db));
 
-    // Health check endpoint
     app.get('/api/health', (req, res) => {
-      res.json({ status: 'OK', timestamp: new Date().toISOString() });
+      res.json({
+        status: 'OK',
+        message: 'Backend is running',
+        timestamp: new Date().toISOString()
+      });
     });
 
-    // 404 handler
+    app.get('/', (req, res) => {
+      res.send('Chat App Backend Running');
+    });
+
     app.use((req, res) => {
       res.status(404).json({
         error: 'Not Found',
-        message: 'The requested endpoint does not exist',
         path: req.originalUrl
       });
     });
 
-    // Error handling middleware (must be last)
     app.use(errorMiddleware);
 
-    server.listen(PORT, () => {
-      console.log(`✓ Server running on http://localhost:${PORT}`);
-      console.log(`✓ Socket.io listening for connections`);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`✓ Server running on port ${PORT}`);
+      console.log('✓ Socket.io listening for connections');
     });
   } catch (error) {
     console.error('✗ Failed to start server:', error);
@@ -110,12 +141,9 @@ async function startServer() {
   }
 }
 
-// Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\nShutting down gracefully...');
-  if (db) {
-    await db.close();
-  }
+  if (db) await db.close();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);

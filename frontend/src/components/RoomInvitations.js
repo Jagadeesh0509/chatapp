@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { roomService, userService } from '../services/api';
+import { roomService } from '../services/api';
 import '../styles/roomInvitations.css';
 
 export default function RoomInvitations({ notifications, onInviteHandled }) {

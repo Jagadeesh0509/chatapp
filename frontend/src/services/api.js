@@ -1,8 +1,11 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const hostname = window.location.hostname;
 
-// Logger utility for debugging
+const API_URL = hostname.includes("github.dev")
+  ? `https://${hostname.replace("-3000", "-5000")}/api`
+  : "http://localhost:5000/api";
+  
 const logger = {
   debug: (message, data) => {
     if (process.env.NODE_ENV === 'development') {
@@ -88,15 +91,6 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-const getHeaders = () => {
-  const token = sessionStorage.getItem('token');
-  return {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  };
-};
 
 // Authentication endpoints
 export const authService = {
