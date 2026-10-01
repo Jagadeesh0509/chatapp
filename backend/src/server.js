@@ -5,6 +5,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
+const path = require('path');
+
 const Database = require('./db/database');
 const socketAuthMiddleware = require('./middleware/socketAuth');
 const authMiddleware = require('./middleware/auth');
@@ -54,7 +56,14 @@ app.use((req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const DB_PATH = process.env.DATABASE_URL || './data/chat_app.db';
+
+const DB_PATH = process.env.DATABASE_URL
+  ? (
+      path.isAbsolute(process.env.DATABASE_URL)
+        ? process.env.DATABASE_URL
+        : path.resolve(__dirname, '..', process.env.DATABASE_URL)
+    )
+  : path.join(__dirname, '../data/chat_app.db');
 
 let db;
 
