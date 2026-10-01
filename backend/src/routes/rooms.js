@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 
-function createRoomRoutes(db) {
+function createRoomRoutes(db, io) {
   const router = express.Router();
 
   // Create a new public room
@@ -199,17 +199,35 @@ function createRoomRoutes(db) {
         return res.status(409).json({ error: 'User already has a pending invite' });
       }
 
-      // Get room details
+      // Get room details and inviter details
       const room = await db.get('SELECT name FROM chat_rooms WHERE id = ?', [roomId]);
+      const inviter = await db.get('SELECT username FROM users WHERE id = ?', [inviterId]);
 
       // Create notification
-      await db.run(
+      const result = await db.run(
         `INSERT INTO notifications (user_id, type, related_user_id, related_room_id)
          VALUES (?, ?, ?, ?)`,
         [userId, 'room_invite', inviterId, roomId]
       );
 
-      res.json({ message: 'Invitation sent successfully' });
+      const notificationPayload = {
+        id: result.id,
+        user_id: Number(userId),
+        type: 'room_invite',
+        related_user_id: Number(inviterId),
+        related_username: inviter ? inviter.username : req.user.username,
+        related_room_id: Number(roomId),
+        room_name: room ? room.name : null,
+        is_read: 0,
+        message: `${inviter ? inviter.username : req.user.username} invited you to join ${room ? room.name : 'a channel'}`,
+        created_at: new Date().toISOString()
+      };
+
+      if (io) {
+        io.to(`user:${userId}`).emit('notification:received', notificationPayload);
+      }
+
+      res.json({ message: 'Invitation sent successfully', notification: notificationPayload });
     } catch (error) {
       console.error('Error inviting user to room:', error);
       res.status(500).json({ error: 'Failed to invite user' });
@@ -253,6 +271,18 @@ function createRoomRoutes(db) {
       // Delete invite
       await db.run('DELETE FROM notifications WHERE id = ?', [invite.id]);
 
+      if (io) {
+        io.to(`room:${roomId}`).emit('room:user-joined', {
+          userId: Number(userId),
+          username: req.user.username,
+          message: `${req.user.username} has joined the room`
+        });
+        io.to(`user:${userId}`).emit('notification:handled', {
+          type: 'room_invite',
+          related_room_id: Number(roomId)
+        });
+      }
+
       res.json({ message: 'Joined room successfully' });
     } catch (error) {
       console.error('Error accepting room invite:', error);
@@ -270,6 +300,13 @@ function createRoomRoutes(db) {
         'DELETE FROM notifications WHERE type = ? AND related_room_id = ? AND user_id = ?',
         ['room_invite', roomId, userId]
       );
+
+      if (io) {
+        io.to(`user:${userId}`).emit('notification:handled', {
+          type: 'room_invite',
+          related_room_id: Number(roomId)
+        });
+      }
 
       res.json({ message: 'Invite declined' });
     } catch (error) {

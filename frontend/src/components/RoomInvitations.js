@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { roomService } from '../services/api';
+import { IconUsers, IconCheck, IconX } from './Icons';
 import '../styles/roomInvitations.css';
 
 export default function RoomInvitations({ notifications, onInviteHandled }) {
@@ -7,14 +8,13 @@ export default function RoomInvitations({ notifications, onInviteHandled }) {
   const [loadingRooms, setLoadingRooms] = useState({});
 
   useEffect(() => {
-    // Filter room invite notifications
     const invites = notifications.filter((notif) => notif.type === 'room_invite');
     setRoomInvites(invites);
   }, [notifications]);
 
   const handleAccept = async (notification) => {
     const roomId = notification.related_room_id;
-    setLoadingRooms({ ...loadingRooms, [roomId]: true });
+    setLoadingRooms((prev) => ({ ...prev, [roomId]: true }));
 
     try {
       await roomService.acceptInvite(roomId);
@@ -25,23 +25,24 @@ export default function RoomInvitations({ notifications, onInviteHandled }) {
     } catch (error) {
       console.error('Error accepting invite:', error);
     } finally {
-      setLoadingRooms({ ...loadingRooms, [roomId]: false });
+      setLoadingRooms((prev) => ({ ...prev, [roomId]: false }));
     }
   };
 
   const handleDecline = async (notification) => {
     const roomId = notification.related_room_id;
-    setLoadingRooms({ ...loadingRooms, [roomId]: true });
+    setLoadingRooms((prev) => ({ ...prev, [roomId]: true }));
 
     try {
       await roomService.declineInvite(roomId);
       setRoomInvites((prev) =>
         prev.filter((inv) => inv.related_room_id !== roomId)
       );
+      onInviteHandled?.();
     } catch (error) {
       console.error('Error declining invite:', error);
     } finally {
-      setLoadingRooms({ ...loadingRooms, [roomId]: false });
+      setLoadingRooms((prev) => ({ ...prev, [roomId]: false }));
     }
   };
 
@@ -50,35 +51,47 @@ export default function RoomInvitations({ notifications, onInviteHandled }) {
   }
 
   return (
-    <div className="room-invitations">
-      <div className="invitations-header">
-        <h3>Room Invitations ({roomInvites.length})</h3>
+    <div className="room-invitations-banner">
+      <div className="invitations-banner-header">
+        <div className="banner-title-wrap">
+          <IconUsers size={14} className="banner-icon" />
+          <span>Channel Invitations ({roomInvites.length})</span>
+        </div>
       </div>
+
       <div className="invitations-list">
         {roomInvites.map((invite) => (
-          <div key={invite.id} className="invitation-item">
-            <div className="invitation-info">
-              <p className="invitation-from">
-                <strong>{invite.related_username}</strong> invited you to a room
+          <div key={invite.id} className="invitation-item-card">
+            <div className="invitation-copy">
+              <p>
+                <strong>{invite.related_username}</strong> invited you to join
               </p>
-              <p className="invitation-time">
-                {new Date(invite.created_at).toLocaleDateString()}
-              </p>
+              <span className="invitation-timestamp">
+                {new Date(invite.created_at).toLocaleDateString([], {
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </span>
             </div>
-            <div className="invitation-actions">
+
+            <div className="invitation-btn-group">
               <button
+                type="button"
                 className="btn btn-small btn-primary"
                 onClick={() => handleAccept(invite)}
                 disabled={loadingRooms[invite.related_room_id]}
               >
-                {loadingRooms[invite.related_room_id] ? '...' : 'Accept'}
+                <IconCheck size={12} />
+                <span>{loadingRooms[invite.related_room_id] ? 'Joining...' : 'Join'}</span>
               </button>
               <button
+                type="button"
                 className="btn btn-small btn-secondary"
                 onClick={() => handleDecline(invite)}
                 disabled={loadingRooms[invite.related_room_id]}
               >
-                Decline
+                <IconX size={12} />
+                <span>Decline</span>
               </button>
             </div>
           </div>

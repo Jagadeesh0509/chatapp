@@ -5,7 +5,7 @@ const PasswordManager = require('../utils/passwordManager');
 const { sendSuccess, sendError, sendValidationError } = require('../utils/apiResponse');
 const { validateRegistration, validateLogin } = require('../utils/validation');
 
-function createAuthRoutes(db) {
+function createAuthRoutes(db, io) {
   const router = express.Router();
 
   // Register endpoint
@@ -129,6 +129,14 @@ function createAuthRoutes(db) {
       const userId = req.user?.id;
       if (userId) {
         await db.run('UPDATE users SET status = ? WHERE id = ?', ['offline', userId]);
+        if (io) {
+          io.emit('user:status-changed', {
+            userId: Number(userId),
+            id: Number(userId),
+            status: 'offline',
+            username: req.user?.username
+          });
+        }
       }
       sendSuccess(res, null, 'Logged out successfully');
     } catch (error) {

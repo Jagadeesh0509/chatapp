@@ -9,16 +9,17 @@ A real-time chat application built with React.js, Node.js, Express.js, Socket.io
 
 ### Core Features
 - **User Authentication**: JWT-based registration and login system
-- **Public Chat Rooms**: Create, join, and chat in public rooms
-- **Private Messaging**: One-on-one private conversations
-- **Real-time Updates**: Instant message delivery via Socket.io
-- **Typing Indicators**: See when others are typing
-- **Online Status**: Track user online/offline status
-- **Message Read Receipts**: Know when messages have been read
-- **Message Editing & Deletion**: Edit or delete sent messages
-- **@Mentions**: Mention other users with notifications
-- **User Presence**: Real-time user presence tracking
-- **Search**: Search for users and rooms
+- **Public & Private Chat Rooms**: Create, join, invite members, and chat in rooms
+- **Channel Invitations**: Real-time room invitations with instant accept/decline banners
+- **Private Messaging**: One-on-one direct conversations with teammates
+- **Real-time Updates**: Instant message delivery and presence via Socket.io
+- **Instant Online Presence**: Real-time online/offline indicators without page reloads
+- **Typing Indicators**: See when others are typing in real time
+- **Message Read Receipts**: Live read receipts for private messages
+- **Message Editing & Deletion**: Edit or delete sent messages with edit history
+- **@Mentions**: Mention users with instant push notifications
+- **WebRTC Voice & Video Calls**: Peer-to-peer 1-on-1 audio and video calling
+- **Search**: Search users, conversations, channels, and messages
 
 ### Technical Features
 - RESTful API for initial data loading
@@ -180,7 +181,7 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 ### Authentication
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login user
-- `POST /api/auth/logout` - Logout user
+- `POST /api/auth/logout` - Logout user (broadcasts instant offline status)
 
 ### Users
 - `GET /api/users/all` - Get all users
@@ -188,6 +189,8 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 - `GET /api/users/profile/:userId` - Get user profile
 - `PUT /api/users/profile/:userId` - Update profile
 - `GET /api/users/search?q=query` - Search users
+- `GET /api/users/notifications` - Get user notifications
+- `POST /api/users/notifications/read-all` - Mark notifications as read
 
 ### Rooms
 - `POST /api/rooms/create` - Create new room
@@ -196,6 +199,14 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 - `GET /api/rooms/:roomId/members` - Get room members
 - `POST /api/rooms/:roomId/join` - Join room
 - `POST /api/rooms/:roomId/leave` - Leave room
+- `POST /api/rooms/:roomId/invite` - Invite a user to a room (triggers real-time notification)
+- `POST /api/rooms/:roomId/invite/accept` - Accept room invitation
+- `POST /api/rooms/:roomId/invite/decline` - Decline room invitation
+
+### Conversations (Direct Messaging)
+- `GET /api/conversations` - Get all user direct conversations
+- `POST /api/conversations/direct/:userId` - Get or create conversation with user
+- `GET /api/conversations/:conversationId` - Get conversation details
 
 ### Messages
 - `GET /api/messages/room/:roomId` - Get room messages
@@ -230,11 +241,20 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 - `conversation:join` - Join a conversation
 - `conversation:leave` - Leave a conversation
 
-### User Events
-- `user:status-changed` - User status changed
+### Real-Time User Presence
+- `user:status-changed` - Real-time online/offline status broadcast immediately upon connection/disconnection/logout without needing page reloads
 
 ### Notification Events
-- `notification:received` - Receive notification
+- `notification:received` - Real-time delivery of mentions and room invites directly to target user socket rooms (`user:${userId}`)
+- `notification:handled` - Notification dismissal when invite is accepted/declined
+
+### WebRTC Audio & Video Calling
+- `call:initiate` - Initiate peer-to-peer call offer
+- `call:incoming` - Incoming call alert
+- `call:accept` - Accept call with SDP answer
+- `call:ice-candidate` - ICE candidate negotiation
+- `call:reject` - Decline incoming call
+- `call:end` - Terminate active call
 
 ## Development
 

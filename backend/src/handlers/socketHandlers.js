@@ -69,21 +69,38 @@ async function hydrateMessage(db, messageId) {
 }
 
 function createSocketHandlers(io, db) {
-  const connectedUsers = new Map();
+  // Map of userId (number) -> Set of socket IDs
+  const userSockets = new Map();
 
   io.on('connection', (socket) => {
-    const userId = socket.userId;
+    const userId = Number(socket.userId);
     const username = socket.username;
 
     console.log(`User connected: ${username} (${userId})`);
-    connectedUsers.set(userId, { socketId: socket.id, username });
+    socket.join(`user:${userId}`);
+
+    const existingSockets = userSockets.get(userId) || new Set();
+    const isFirstConnection = existingSockets.size === 0;
+    existingSockets.add(socket.id);
+    userSockets.set(userId, existingSockets);
 
     (async () => {
       try {
         await db.run('UPDATE users SET status = ? WHERE id = ?', ['online', userId]);
-        io.emit('user:status-changed', { userId, status: 'online', username });
+        const userRow = await db.get(
+          'SELECT id, username, email, avatar_url, status FROM users WHERE id = ?',
+          [userId]
+        );
+        io.emit('user:status-changed', {
+          userId,
+          id: userId,
+          status: 'online',
+          username: userRow ? userRow.username : username,
+          avatar_url: userRow ? userRow.avatar_url : null,
+          email: userRow ? userRow.email : null
+        });
       } catch (error) {
-        console.error('Error updating user status:', error);
+        console.error('Error updating user status on connect:', error);
       }
     })();
 
@@ -205,24 +222,23 @@ function createSocketHandlers(io, db) {
         }
 
         for (const mentionedUser of resolvedMentions) {
+          const mentionedUserId = Number(mentionedUser.id);
           await db.run(
             `INSERT INTO notifications (user_id, type, related_user_id, related_message_id, related_room_id)
              VALUES (?, ?, ?, ?, ?)`,
-            [mentionedUser.id, 'mention', userId, result.id, roomId || null]
+            [mentionedUserId, 'mention', userId, result.id, roomId || null]
           );
 
-          const userSocket = getSocketByUserId(io, mentionedUser.id);
-          if (userSocket) {
-            userSocket.emit('notification:received', {
-              type: 'mention',
-              is_read: 0,
-              message: `${username} mentioned you in a message`,
-              related_username: username,
-              related_message_id: result.id,
-              related_room_id: roomId || null,
-              created_at: new Date().toISOString()
-            });
-          }
+          io.to(`user:${mentionedUserId}`).emit('notification:received', {
+            type: 'mention',
+            user_id: mentionedUserId,
+            is_read: 0,
+            message: `${username} mentioned you in a message`,
+            related_username: username,
+            related_message_id: result.id,
+            related_room_id: roomId || null,
+            created_at: new Date().toISOString()
+          });
         }
       } catch (error) {
         console.error('Error sending message:', error);
@@ -368,18 +384,83 @@ function createSocketHandlers(io, db) {
       socket.leave(`conversation:${conversationId}`);
     });
 
-    socket.on('disconnect', () => {
-      connectedUsers.delete(userId);
-      console.log(`User disconnected: ${username} (${userId})`);
+    // ================= WEBRTC AUDIO & VIDEO CALLING =================
+    socket.on('call:initiate', async ({ targetUserId, offer, conversationId, isVideo }) => {
+      try {
+        const caller = await db.get(
+          'SELECT id, username, avatar_url FROM users WHERE id = ?',
+          [userId]
+        );
 
-      (async () => {
-        try {
-          await db.run('UPDATE users SET status = ? WHERE id = ?', ['offline', userId]);
-          io.emit('user:status-changed', { userId, status: 'offline', username });
-        } catch (error) {
-          console.error('Error updating user status on disconnect:', error);
+        const callId = `call_${Date.now()}_${userId}_${targetUserId}`;
+
+        io.to(`user:${targetUserId}`).emit('call:incoming', {
+          callId,
+          caller: caller || { id: userId, username },
+          offer,
+          conversationId,
+          isVideo: Boolean(isVideo)
+        });
+      } catch (err) {
+        console.error('Error initiating call:', err);
+        socket.emit('call:unavailable', { message: 'Failed to initiate call.' });
+      }
+    });
+
+    socket.on('call:accept', ({ callerId, answer, callId }) => {
+      io.to(`user:${callerId}`).emit('call:accepted', {
+        callId,
+        calleeId: userId,
+        answer
+      });
+    });
+
+    socket.on('call:ice-candidate', ({ targetUserId, candidate, callId }) => {
+      io.to(`user:${targetUserId}`).emit('call:ice-candidate', {
+        senderId: userId,
+        candidate,
+        callId
+      });
+    });
+
+    socket.on('call:reject', ({ callerId, callId, reason }) => {
+      io.to(`user:${callerId}`).emit('call:rejected', {
+        callId,
+        reason: reason || 'Call declined'
+      });
+    });
+
+    socket.on('call:end', ({ targetUserId, callId }) => {
+      if (targetUserId) {
+        io.to(`user:${targetUserId}`).emit('call:ended', {
+          callId,
+          byUserId: userId
+        });
+      }
+    });
+
+    socket.on('disconnect', () => {
+      console.log(`Socket disconnected: ${username} (${socket.id})`);
+      const userSocketsSet = userSockets.get(userId);
+      if (userSocketsSet) {
+        userSocketsSet.delete(socket.id);
+        if (userSocketsSet.size === 0) {
+          userSockets.delete(userId);
+          (async () => {
+            try {
+              await db.run('UPDATE users SET status = ? WHERE id = ?', ['offline', userId]);
+              io.emit('user:status-changed', {
+                userId,
+                id: userId,
+                status: 'offline',
+                username
+              });
+            } catch (error) {
+              console.error('Error updating user status on disconnect:', error);
+            }
+          })();
         }
-      })();
+      }
     });
 
     socket.on('error', (error) => {

@@ -30,7 +30,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Socket.io
 const io = new Server(server, {
@@ -76,7 +77,7 @@ async function startServer() {
     createSocketHandlers(io, db);
 
     // Auth routes
-    const authRoutes = createAuthRoutes(db);
+    const authRoutes = createAuthRoutes(db, io);
 
     app.use(
       '/api/auth',
@@ -96,7 +97,7 @@ async function startServer() {
     // Protected routes
     app.use('/api/users', authMiddleware, createUserRoutes(db));
 
-    app.use('/api/rooms', authMiddleware, createRoomRoutes(db));
+    app.use('/api/rooms', authMiddleware, createRoomRoutes(db, io));
 
     app.use('/api/messages', authMiddleware, createMessageRoutes(db));
 

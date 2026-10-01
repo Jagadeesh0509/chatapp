@@ -249,37 +249,78 @@ export function ChatProvider({ children }) {
 
     // ================= ONLINE STATUS =================
 
-    newSocket.on(
-      'user:status-changed',
-      ({ userId, status }) => {
-        setOnlineUsers((prev) =>
-          prev.map((listedUser) =>
-            listedUser.id === userId
-              ? {
-                  ...listedUser,
-                  status
-                }
-              : listedUser
-          )
-        );
+    newSocket.on('user:status-changed', (data) => {
+      const targetId = Number(data.userId || data.id);
+      const nextStatus = data.status || 'offline';
 
-        setConversations((prev) =>
-          prev.map((conversation) =>
-            Number(
-              conversation.participant?.id
-            ) === Number(userId)
-              ? {
-                  ...conversation,
-                  participant: {
-                    ...conversation.participant,
-                    status
-                  }
-                }
-              : conversation
-          )
+      setOnlineUsers((prev) => {
+        const filtered = prev.filter(
+          (u) => Number(u.id || u.userId) !== targetId
         );
-      }
-    );
+        if (nextStatus === 'online') {
+          return [
+            ...filtered,
+            {
+              id: targetId,
+              userId: targetId,
+              username: data.username || 'User',
+              avatar_url: data.avatar_url || null,
+              email: data.email || null,
+              status: 'online',
+              ...data
+            }
+          ];
+        }
+        return filtered;
+      });
+
+      setConversations((prev) =>
+        prev.map((conversation) => {
+          const isParticipant =
+            Number(conversation.participant?.id) === targetId ||
+            Number(conversation.participant1_id) === targetId ||
+            Number(conversation.participant2_id) === targetId;
+
+          if (isParticipant) {
+            return {
+              ...conversation,
+              participant: {
+                ...conversation.participant,
+                status: nextStatus
+              },
+              participant1_status:
+                Number(conversation.participant1_id) === targetId
+                  ? nextStatus
+                  : conversation.participant1_status,
+              participant2_status:
+                Number(conversation.participant2_id) === targetId
+                  ? nextStatus
+                  : conversation.participant2_status
+            };
+          }
+          return conversation;
+        })
+      );
+
+      setCurrentConversation((prev) => {
+        if (!prev) return prev;
+        const isParticipant =
+          Number(prev.participant?.id) === targetId ||
+          Number(prev.participant1_id) === targetId ||
+          Number(prev.participant2_id) === targetId;
+
+        if (isParticipant) {
+          return {
+            ...prev,
+            participant: {
+              ...prev.participant,
+              status: nextStatus
+            }
+          };
+        }
+        return prev;
+      });
+    });
 
     // ================= READ RECEIPTS =================
 
@@ -320,10 +361,30 @@ export function ChatProvider({ children }) {
     newSocket.on(
       'notification:received',
       (notification) => {
-        setNotifications((prev) => [
-          notification,
-          ...prev
-        ]);
+        setNotifications((prev) => {
+          if (notification.id && prev.some((n) => n.id === notification.id)) {
+            return prev;
+          }
+          return [
+            notification,
+            ...prev
+          ];
+        });
+      }
+    );
+
+    newSocket.on(
+      'notification:handled',
+      ({ type, related_room_id }) => {
+        setNotifications((prev) =>
+          prev.filter(
+            (n) =>
+              !(
+                n.type === type &&
+                Number(n.related_room_id) === Number(related_room_id)
+              )
+          )
+        );
       }
     );
 

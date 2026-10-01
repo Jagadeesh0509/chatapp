@@ -1,107 +1,146 @@
-/* ============ USER LIST ============ */
+/* ==========================================================================
+   AURA USER LIST STYLES — CHARCOAL & WARM ORANGE
+   ========================================================================== */
+
 .user-list {
   display: flex;
   flex-direction: column;
+  gap: 3px;
+  padding: 8px;
   overflow-y: auto;
   flex: 1;
 }
 
-.user-item {
-  padding: 12px;
-  margin: 4px 8px;
-  background: white;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+.user-card-item {
   display: flex;
-  gap: 12px;
   align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  border: 1px solid transparent;
   transition: var(--transition);
 }
 
-.user-item:hover {
-  box-shadow: var(--shadow);
-  border-color: var(--primary-color);
+.user-card-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
 }
 
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--secondary-color);
-  flex-shrink: 0;
+.user-avatar-container {
   position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
 }
 
-.user-avatar img {
+.user-avatar-image,
+.user-avatar-fallback {
   width: 100%;
   height: 100%;
+  border-radius: var(--radius-xs);
   object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  color: var(--primary-text);
+  border: 1px solid var(--border-subtle);
 }
 
-.user-info {
+.user-status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+}
+
+.user-status-dot.online {
+  background-color: var(--primary-color);
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.45);
+}
+
+.user-status-dot.offline {
+  background-color: var(--text-muted);
+}
+
+.user-meta {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
-.user-info h4 {
-  margin: 0 0 4px 0;
-  font-size: 14px;
-  font-weight: 500;
+.user-card-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.user-status {
-  display: block;
-  font-size: 12px;
-  color: var(--text-secondary);
-  text-transform: capitalize;
+.user-card-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-muted);
 }
 
-.btn-message {
-  background: var(--secondary-color);
-  border: none;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
+.btn-dm-action {
+  padding: 4px 9px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  font-size: 11.5px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
   transition: var(--transition);
-  flex-shrink: 0;
 }
 
-.btn-message:hover {
-  background: var(--primary-color);
-  color: white;
+.btn-dm-action:hover {
+  background: var(--primary-light);
+  color: var(--primary-text);
+  border-color: var(--primary-border);
 }
 
-.empty-list {
+.btn-call-action:hover {
+  background: rgba(249, 115, 22, 0.18);
+  color: #f97316;
+  border-color: rgba(249, 115, 22, 0.4);
+}
+
+/* Empty State */
+.user-list-empty {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  padding: 40px 16px;
-  color: var(--text-secondary);
+  justify-content: center;
   text-align: center;
+  padding: 44px 20px;
+  color: var(--text-secondary);
 }
 
-@media (max-width: 768px) {
-  .user-item {
-    padding: 10px;
-    margin: 2px 4px;
-  }
+.user-list-empty h4 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
 
-  .user-avatar {
-    width: 36px;
-    height: 36px;
-  }
-
-  .btn-message {
-    width: 28px;
-    height: 28px;
-  }
+.user-list-empty p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
 }

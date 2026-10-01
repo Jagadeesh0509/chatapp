@@ -1,29 +1,74 @@
 import React, { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useChat } from '../context/ChatContext';
+import {
+  IconCheck,
+  IconCheckCheck,
+  IconEdit,
+  IconTrash,
+  IconCopy,
+  IconReply,
+  IconPaperclip
+} from './Icons';
 import '../styles/messageList.css';
 
-function formatMarkdown(content) {
-  return content.replace(/(^|\s)@(\w+)/g, '$1**@$2**');
+function formatMessageTime(dateString) {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '';
+  }
+}
+
+function getDateSeparatorLabel(dateString) {
+  try {
+    const msgDate = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (msgDate.toDateString() === today.toDateString()) {
+      return 'Today';
+    }
+    if (msgDate.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    }
+    return msgDate.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: msgDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+    });
+  } catch (e) {
+    return '';
+  }
+}
+
+function shouldShowDateSeparator(currentMsg, prevMsg) {
+  if (!prevMsg) return true;
+  try {
+    const currentDate = new Date(currentMsg.created_at).toDateString();
+    const prevDate = new Date(prevMsg.created_at).toDateString();
+    return currentDate !== prevDate;
+  } catch (e) {
+    return false;
+  }
 }
 
 function extractMedia(content) {
   const media = { images: [], links: [] };
-  
-  // Extract image URLs (markdown and plain URLs)
-  const imageRegex = /!\[.*?\]\((.*?)\)|(?:https?:\/\/[^\s]+\.(?:png|jpg|jpeg|gif|webp))/gi;
+  if (!content) return media;
+
+  const imageRegex = /!\[.*?\]\((.*?)\)|(?:https?:\/\/[^\s)]+\.(?:png|jpg|jpeg|gif|webp))/gi;
   let match;
-  
   while ((match = imageRegex.exec(content)) !== null) {
     const url = match[1] || match[0];
     if (media.images.indexOf(url) === -1) {
       media.images.push(url);
     }
   }
-  
-  // Extract non-image URLs
+
   const urlRegex = /(?:https?:\/\/[^\s)]+)/g;
   while ((match = urlRegex.exec(content)) !== null) {
     const url = match[0];
@@ -31,14 +76,15 @@ function extractMedia(content) {
       media.links.push(url);
     }
   }
-  
+
   return media;
 }
 
-export default function MessageList({ messages }) {
+export default function MessageList({ messages, onReplyMessage }) {
   const { user, editMessage, deleteMessage } = useChat();
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [draftContent, setDraftContent] = useState('');
+  const [copiedId, setCopiedId] = useState(null);
 
   const startEditing = (message) => {
     setEditingMessageId(message.id);
@@ -51,80 +97,130 @@ export default function MessageList({ messages }) {
   };
 
   const saveEdit = (messageId) => {
-    if (!draftContent.trim()) {
-      return;
-    }
-
+    if (!draftContent.trim()) return;
     editMessage(messageId, draftContent.trim());
     cancelEditing();
   };
 
   const handleDelete = (messageId) => {
-    if (window.confirm('Delete this message?')) {
+    if (window.confirm('Are you sure you want to delete this message?')) {
       deleteMessage(messageId);
     }
   };
 
-  return (
-    <div className="message-list">
-      {messages.length === 0 ? (
-        <div className="empty-messages">
-          <p>No messages yet. Start the conversation!</p>
+  const handleCopy = (message) => {
+    navigator.clipboard?.writeText(message.content);
+    setCopiedId(message.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  if (!messages || messages.length === 0) {
+    return (
+      <div className="empty-messages-container">
+        <div className="empty-chat-hero">
+          <div className="empty-chat-icon">
+            <IconReply size={28} />
+          </div>
+          <h3>Start of Conversation</h3>
+          <p>
+            No messages have been sent here yet. Send a friendly message or share project notes to get started.
+          </p>
+          <div className="suggested-prompts">
+            <span className="prompt-pill">Say hello 👋</span>
+            <span className="prompt-pill">Share an update 🚀</span>
+            <span className="prompt-pill">Plan a sync 📅</span>
+          </div>
         </div>
-      ) : (
-        messages.map((message, index) => {
-          const showAvatar =
-            index === 0 ||
-            messages[index - 1].sender_id !== message.sender_id ||
-            new Date(message.created_at) -
-              new Date(messages[index - 1].created_at) >
-              5 * 60 * 1000;
+      </div>
+    );
+  }
 
-          const isOwnMessage = Number(message.sender_id) === Number(user?.id);
-          const isEditing = editingMessageId === message.id;
+  return (
+    <div className="message-list-stream">
+      {messages.map((message, index) => {
+        const prevMessage = index > 0 ? messages[index - 1] : null;
+        const showDateSeparator = shouldShowDateSeparator(message, prevMessage);
 
-          return (
+        const isOwn = Number(message.sender_id) === Number(user?.id);
+        const isEditing = editingMessageId === message.id;
+
+        // Grouping: consecutive message from same sender within 4 minutes
+        const isConsecutive =
+          prevMessage &&
+          !showDateSeparator &&
+          Number(prevMessage.sender_id) === Number(message.sender_id) &&
+          new Date(message.created_at) - new Date(prevMessage.created_at) < 4 * 60 * 1000;
+
+        const showAvatar = !isConsecutive;
+        const media = extractMedia(message.content);
+
+        // Read receipt status: if read by any other recipient
+        const isReadByOthers =
+          Array.isArray(message.readBy) &&
+          message.readBy.some((r) => Number(r.userId) !== Number(user?.id));
+
+        return (
+          <React.Fragment key={message.id || index}>
+            {showDateSeparator && (
+              <div className="date-separator">
+                <span className="date-separator-label">
+                  {getDateSeparatorLabel(message.created_at)}
+                </span>
+              </div>
+            )}
+
             <div
-              key={message.id}
-              className={`message-group ${showAvatar ? 'with-avatar' : ''}`}
+              className={`message-row ${isOwn ? 'outgoing' : 'incoming'} ${
+                isConsecutive ? 'consecutive' : 'first-in-group'
+              }`}
             >
-              {showAvatar && (
-                <div className="message-avatar">
-                  {message.avatar_url ? (
-                    <img src={message.avatar_url} alt={message.username} />
+              {/* Incoming Avatar */}
+              {!isOwn && (
+                <div className="message-avatar-col">
+                  {showAvatar ? (
+                    message.avatar_url ? (
+                      <img
+                        src={message.avatar_url}
+                        alt={message.username}
+                        className="msg-avatar-img"
+                      />
+                    ) : (
+                      <div className="msg-avatar-fallback">
+                        {message.username?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                    )
                   ) : (
-                    <div className="avatar-placeholder">
-                      {message.username.charAt(0).toUpperCase()}
-                    </div>
+                    <div className="msg-avatar-spacer" />
                   )}
                 </div>
               )}
 
-              <div className="message-content">
-                {showAvatar && (
-                  <div className="message-meta">
-                    <strong>{message.username}</strong>
-                    <span className="message-time">
-                      {formatDistanceToNow(new Date(message.created_at), {
-                        addSuffix: true
-                      })}
-                    </span>
-                  </div>
+              {/* Message Content Container */}
+              <div className="message-bubble-wrapper">
+                {/* Sender Name on first in group for incoming */}
+                {!isOwn && showAvatar && (
+                  <div className="msg-sender-name">{message.username}</div>
                 )}
 
                 <div
-                  className={`message-bubble ${message.is_deleted ? 'deleted' : ''}`}
+                  className={`message-bubble ${isOwn ? 'bubble-outgoing' : 'bubble-incoming'} ${
+                    message.is_deleted ? 'bubble-deleted' : ''
+                  }`}
                 >
                   {message.is_deleted ? (
-                    <em>This message was deleted</em>
+                    <div className="msg-deleted-notice">
+                      <em>This message was deleted</em>
+                    </div>
                   ) : isEditing ? (
-                    <div className="message-editor">
+                    <div className="message-inline-editor">
                       <textarea
                         value={draftContent}
                         onChange={(e) => setDraftContent(e.target.value)}
+                        className="inline-edit-textarea"
                         rows="3"
+                        autoFocus
                       />
-                      <div className="message-editor-actions">
+                      <div className="inline-editor-actions">
                         <button
                           type="button"
                           className="btn btn-small btn-primary"
@@ -143,7 +239,7 @@ export default function MessageList({ messages }) {
                     </div>
                   ) : (
                     <>
-                      <div className="message-markdown">
+                      <div className="message-markdown-body">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
@@ -154,91 +250,129 @@ export default function MessageList({ messages }) {
                             )
                           }}
                         >
-                          {formatMarkdown(message.content)}
+                          {message.content}
                         </ReactMarkdown>
                       </div>
-                      
-                      {(() => {
-                        const media = extractMedia(message.content);
-                        return (
-                          <>
-                            {media.images.length > 0 && (
-                              <div className="message-images">
-                                {media.images.map((imageUrl, idx) => (
-                                  <img
-                                    key={idx}
-                                    src={imageUrl}
-                                    alt="Shared media"
-                                    className="message-image"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            {media.links.length > 0 && (
-                              <div className="message-links">
-                                {media.links.map((linkUrl, idx) => (
-                                  <a
-                                    key={idx}
-                                    href={linkUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="message-link-preview"
-                                    title={linkUrl}
-                                  >
-                                    <span className="link-icon">🔗</span>
-                                    <span className="link-text">
-                                      {new URL(linkUrl).hostname}
-                                    </span>
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                      
-                      {Boolean(message.is_edited) && (
-                        <span className="edited-label">(edited)</span>
+
+                      {/* Extracted Images */}
+                      {media.images.length > 0 && (
+                        <div className="message-media-images">
+                          {media.images.map((imgUrl, idx) => (
+                            <img
+                              key={idx}
+                              src={imgUrl}
+                              alt="Shared preview"
+                              className="message-shared-image"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          ))}
+                        </div>
                       )}
+
+                      {/* Extracted Links */}
+                      {media.links.length > 0 && (
+                        <div className="message-link-pills">
+                          {media.links.map((linkUrl, idx) => {
+                            let hostname = linkUrl;
+                            try {
+                              hostname = new URL(linkUrl).hostname;
+                            } catch (e) {}
+                            return (
+                              <a
+                                key={idx}
+                                href={linkUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="link-pill"
+                                title={linkUrl}
+                              >
+                                <IconPaperclip size={12} />
+                                <span>{hostname}</span>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Bubble Metadata: timestamp, edited, read receipts */}
+                      <div className="message-bubble-meta">
+                        {Boolean(message.is_edited) && (
+                          <span className="msg-edited-badge">edited</span>
+                        )}
+                        <span className="msg-timestamp">
+                          {formatMessageTime(message.created_at)}
+                        </span>
+                        {isOwn && (
+                          <span
+                            className={`msg-receipt-icon ${isReadByOthers ? 'read' : 'sent'}`}
+                            title={isReadByOthers ? 'Read by recipient' : 'Delivered'}
+                          >
+                            {isReadByOthers ? (
+                              <IconCheckCheck size={14} />
+                            ) : (
+                              <IconCheck size={13} />
+                            )}
+                          </span>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
 
-                {isOwnMessage && !message.is_deleted && !isEditing && (
-                  <div className="message-actions">
+                {/* Hover Action Toolbar */}
+                {!message.is_deleted && !isEditing && (
+                  <div className="message-hover-toolbar">
                     <button
                       type="button"
-                      className="message-action-btn"
-                      onClick={() => startEditing(message)}
+                      className="toolbar-btn"
+                      onClick={() => onReplyMessage?.(message)}
+                      title="Reply"
+                      aria-label="Reply to message"
                     >
-                      Edit
+                      <IconReply size={13} />
                     </button>
-                    <button
-                      type="button"
-                      className="message-action-btn danger"
-                      onClick={() => handleDelete(message.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
 
-                {message.readBy && message.readBy.length > 0 && (
-                  <div className="read-receipts">
-                    Read by{' '}
-                    {message.readBy
-                      .map((receipt) => receipt.username || `User ${receipt.userId}`)
-                      .join(', ')}
+                    <button
+                      type="button"
+                      className="toolbar-btn"
+                      onClick={() => handleCopy(message)}
+                      title={copiedId === message.id ? 'Copied!' : 'Copy text'}
+                      aria-label="Copy message"
+                    >
+                      {copiedId === message.id ? <IconCheck size={13} /> : <IconCopy size={13} />}
+                    </button>
+
+                    {isOwn && (
+                      <>
+                        <button
+                          type="button"
+                          className="toolbar-btn"
+                          onClick={() => startEditing(message)}
+                          title="Edit message"
+                          aria-label="Edit message"
+                        >
+                          <IconEdit size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          className="toolbar-btn danger"
+                          onClick={() => handleDelete(message.id)}
+                          title="Delete message"
+                          aria-label="Delete message"
+                        >
+                          <IconTrash size={13} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             </div>
-          );
-        })
-      )}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
