@@ -387,14 +387,25 @@ function createSocketHandlers(io, db) {
     // ================= WEBRTC AUDIO & VIDEO CALLING =================
     socket.on('call:initiate', async ({ targetUserId, offer, conversationId, isVideo }) => {
       try {
+        const targetId = Number(targetUserId);
+        const targetSockets = userSockets.get(targetId);
+
+        if (!targetSockets || targetSockets.size === 0) {
+          socket.emit('call:unavailable', {
+            targetUserId: targetId,
+            message: 'User is currently offline or unreachable.'
+          });
+          return;
+        }
+
         const caller = await db.get(
           'SELECT id, username, avatar_url FROM users WHERE id = ?',
           [userId]
         );
 
-        const callId = `call_${Date.now()}_${userId}_${targetUserId}`;
+        const callId = `call_${Date.now()}_${userId}_${targetId}`;
 
-        io.to(`user:${targetUserId}`).emit('call:incoming', {
+        io.to(`user:${targetId}`).emit('call:incoming', {
           callId,
           caller: caller || { id: userId, username },
           offer,
@@ -408,7 +419,8 @@ function createSocketHandlers(io, db) {
     });
 
     socket.on('call:accept', ({ callerId, answer, callId }) => {
-      io.to(`user:${callerId}`).emit('call:accepted', {
+      const targetId = Number(callerId);
+      io.to(`user:${targetId}`).emit('call:accepted', {
         callId,
         calleeId: userId,
         answer
@@ -416,7 +428,9 @@ function createSocketHandlers(io, db) {
     });
 
     socket.on('call:ice-candidate', ({ targetUserId, candidate, callId }) => {
-      io.to(`user:${targetUserId}`).emit('call:ice-candidate', {
+      if (!targetUserId || !candidate) return;
+      const targetId = Number(targetUserId);
+      io.to(`user:${targetId}`).emit('call:ice-candidate', {
         senderId: userId,
         candidate,
         callId
@@ -424,7 +438,8 @@ function createSocketHandlers(io, db) {
     });
 
     socket.on('call:reject', ({ callerId, callId, reason }) => {
-      io.to(`user:${callerId}`).emit('call:rejected', {
+      const targetId = Number(callerId);
+      io.to(`user:${targetId}`).emit('call:rejected', {
         callId,
         reason: reason || 'Call declined'
       });
@@ -432,7 +447,8 @@ function createSocketHandlers(io, db) {
 
     socket.on('call:end', ({ targetUserId, callId }) => {
       if (targetUserId) {
-        io.to(`user:${targetUserId}`).emit('call:ended', {
+        const targetId = Number(targetUserId);
+        io.to(`user:${targetId}`).emit('call:ended', {
           callId,
           byUserId: userId
         });

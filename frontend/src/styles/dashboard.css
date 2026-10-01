@@ -231,34 +231,47 @@
 @media (max-width: 768px) {
   .dashboard {
     flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
   }
 
   .dashboard-content {
     flex-direction: row;
     position: relative;
     width: 100%;
-    height: calc(100vh - 54px);
+    flex: 1;
+    height: auto;
+    min-height: 0;
   }
 
-  .conversations-panel {
+  .conversations-panel,
+  .settings-viewport,
+  .friends-panel-container {
     width: 100%;
     border-right: none;
+    padding-bottom: 84px;
+    box-sizing: border-box;
   }
 
   .main-chat-viewport {
     display: none;
   }
 
-  .dashboard.mobile-chat-active .conversations-panel {
+  .dashboard.mobile-chat-active .conversations-panel,
+  .dashboard.mobile-chat-active .friends-panel-container,
+  .dashboard.mobile-chat-active .settings-viewport {
     display: none;
   }
 
   .dashboard.mobile-chat-active .main-chat-viewport {
     display: flex;
     width: 100%;
+    height: 100%;
   }
 
-  .dashboard.mobile-chat-active .sidebar {
-    display: none;
+  .dashboard.mobile-chat-active .sidebar,
+  .dashboard.mobile-chat-active .sidebar-footer {
+    display: none !important;
   }
 }

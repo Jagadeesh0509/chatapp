@@ -514,33 +514,110 @@
   letter-spacing: 0.04em;
 }
 
-/* Responsive Hide for Mobile/Small Screens */
-@media (max-width: 980px) {
+/* ============ TABLET & MOBILE RESPONSIVE ADAPTATION ============ */
+@media (max-width: 1024px) {
   .auth-showcase {
+    display: flex !important;
     max-width: 100%;
-    margin-bottom: 24px;
-    align-items: center;
-    text-align: center;
-  }
-
-  .showcase-header {
-    align-items: center;
+    gap: 22px;
   }
 
   .showcase-heading {
-    font-size: 28px;
+    font-size: clamp(26px, 5vw, 34px);
+  }
+
+  .showcase-subheading {
+    font-size: 13.5px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-showcase {
+    gap: 18px;
+  }
+
+  .showcase-ambient-glow {
+    width: 260px;
+    height: 260px;
+    top: -20px;
+    left: -20px;
+    filter: blur(35px);
+  }
+
+  .showcase-heading {
+    font-size: clamp(22px, 6vw, 28px);
+    line-height: 1.2;
+  }
+
+  .showcase-subheading {
+    font-size: 13px;
   }
 
   .showcase-preview-card {
-    display: none; /* Hide heavy simulated deck on smaller devices to keep mobile login instant */
+    padding: 14px 14px 18px;
+    border-radius: 12px;
+    gap: 12px;
   }
 
-  .showcase-tech-badges {
-    justify-content: center;
+  .preview-top-bar {
+    padding-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .preview-telemetry-meta {
+    font-size: 10px;
+  }
+
+  .msg-body-wrap {
+    max-width: 88%;
+  }
+
+  .msg-bubble {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  .audio-dispatch-bubble {
+    padding: 6px 10px;
+    gap: 8px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .audio-waveform-bars {
+    gap: 2px;
+  }
+
+  .floating-telemetry-pill {
+    position: static;
+    margin-top: 6px;
+    display: flex;
+    justify-content: flex-end;
+    animation: none;
+  }
+
+  .floating-pill-content {
+    font-size: 10px;
+    padding: 4px 9px;
+  }
+
+  .tech-badge {
+    padding: 5px 9px;
+    font-size: 10.5px;
   }
 
   .showcase-metrics-grid {
-    width: 100%;
-    max-width: 440px;
+    gap: 8px;
+    padding-top: 14px;
+  }
+
+  .metric-num {
+    font-size: 16px;
+  }
+
+  .metric-label {
+    font-size: 8.5px;
   }
 }

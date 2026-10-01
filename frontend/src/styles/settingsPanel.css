@@ -197,3 +197,59 @@
   padding-top: 14px;
   border-top: 1px solid var(--border-color);
 }
+
+.account-session-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  gap: 12px;
+}
+
+.account-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-user-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.account-user-val {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.account-user-email {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.account-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  padding: 8px 14px !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.account-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #f87171 !important;
+}

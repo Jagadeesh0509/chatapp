@@ -16,6 +16,7 @@ export default function CallModal() {
     activeCall,
     isMuted,
     isVideoDisabled,
+    isAccepting,
     callDuration,
     localStream,
     remoteStream,
@@ -28,6 +29,7 @@ export default function CallModal() {
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const remoteAudioDOMRef = useRef(null);
 
   const isVideo = Boolean(activeCall?.isVideo);
 
@@ -43,6 +45,16 @@ export default function CallModal() {
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [remoteStream, callState, isVideo]);
+
+  // Dedicated in-DOM audio element attachment for cross-device mobile voice support
+  useEffect(() => {
+    if (remoteAudioDOMRef.current && remoteStream) {
+      remoteAudioDOMRef.current.srcObject = remoteStream;
+      remoteAudioDOMRef.current.play().catch((err) => {
+        console.warn('[WebRTC] In-DOM remote audio autoplay deferred:', err);
+      });
+    }
+  }, [remoteStream, callState]);
 
   if (callState === 'idle' || !activeCall) {
     return null;
@@ -99,6 +111,13 @@ export default function CallModal() {
 
   return (
     <div className="modal-overlay call-modal-overlay" role="dialog" aria-modal="true">
+      {/* Invisible in-DOM audio element guarantees audio decodes & outputs across mobile/desktop */}
+      <audio
+        ref={remoteAudioDOMRef}
+        autoPlay
+        playsInline
+        style={{ position: 'fixed', opacity: 0, pointerEvents: 'none', width: '1px', height: '1px', bottom: 0 }}
+      />
       <div
         className={`call-modal modal ${isVideoStageActive ? 'video-active' : ''}`}
         onClick={(e) => e.stopPropagation()}
@@ -243,62 +262,88 @@ export default function CallModal() {
             <div className="call-controls">
               {isIncoming ? (
                 <>
-                  <button
-                    type="button"
-                    className="call-ctrl-btn call-end-btn"
-                    onClick={() => rejectCall('Call declined')}
-                    title="Decline Call"
-                  >
-                    <IconPhoneOff size={22} />
-                  </button>
+                  <div className="call-btn-action-group">
+                    <button
+                      type="button"
+                      className="call-ctrl-btn call-end-btn"
+                      onClick={() => rejectCall('Call declined')}
+                      disabled={isAccepting}
+                      title="Decline Call"
+                    >
+                      <IconPhoneOff size={22} />
+                    </button>
+                    <span className="call-btn-label">Decline</span>
+                  </div>
 
-                  <button
-                    type="button"
-                    className="call-ctrl-btn call-accept-btn"
-                    onClick={acceptCall}
-                    title={isVideo ? 'Accept Video Call' : 'Accept Audio Call'}
-                  >
-                    {isVideo ? <IconVideo size={22} /> : <IconPhone size={22} />}
-                  </button>
+                  <div className="call-btn-action-group">
+                    <button
+                      type="button"
+                      className={`call-ctrl-btn call-accept-btn ${isAccepting ? 'btn-loading' : ''}`}
+                      onClick={acceptCall}
+                      disabled={isAccepting}
+                      title={isVideo ? 'Accept Video Call' : 'Accept Audio Call'}
+                    >
+                      {isAccepting ? (
+                        <span className="call-spinner" />
+                      ) : isVideo ? (
+                        <IconVideo size={22} />
+                      ) : (
+                        <IconPhone size={22} />
+                      )}
+                    </button>
+                    <span className="call-btn-label">{isAccepting ? 'Connecting...' : 'Accept'}</span>
+                  </div>
                 </>
               ) : callState === 'connected' ? (
                 <>
-                  <button
-                    type="button"
-                    className={`call-ctrl-btn ${isMuted ? 'active-warn' : ''}`}
-                    onClick={toggleMute}
-                    title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-                  >
-                    {isMuted ? <IconMicOff size={20} /> : <IconMic size={20} />}
-                  </button>
+                  <div className="call-btn-action-group">
+                    <button
+                      type="button"
+                      className={`call-ctrl-btn ${isMuted ? 'active-warn' : ''}`}
+                      onClick={toggleMute}
+                      title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+                    >
+                      {isMuted ? <IconMicOff size={20} /> : <IconMic size={20} />}
+                    </button>
+                    <span className="call-btn-label">{isMuted ? 'Unmute' : 'Mute'}</span>
+                  </div>
 
-                  <button
-                    type="button"
-                    className={`call-ctrl-btn ${isVideoDisabled ? 'active-warn' : ''}`}
-                    onClick={toggleVideo}
-                    title={isVideoDisabled ? 'Turn video on' : 'Turn video off'}
-                  >
-                    {isVideoDisabled ? <IconVideoOff size={20} /> : <IconVideo size={20} />}
-                  </button>
+                  <div className="call-btn-action-group">
+                    <button
+                      type="button"
+                      className={`call-ctrl-btn ${isVideoDisabled ? 'active-warn' : ''}`}
+                      onClick={toggleVideo}
+                      title={isVideoDisabled ? 'Turn video on' : 'Turn video off'}
+                    >
+                      {isVideoDisabled ? <IconVideoOff size={20} /> : <IconVideo size={20} />}
+                    </button>
+                    <span className="call-btn-label">{isVideoDisabled ? 'Cam On' : 'Cam Off'}</span>
+                  </div>
 
+                  <div className="call-btn-action-group">
+                    <button
+                      type="button"
+                      className="call-ctrl-btn call-end-btn"
+                      onClick={endCall}
+                      title="End Call"
+                    >
+                      <IconPhoneOff size={22} />
+                    </button>
+                    <span className="call-btn-label">End</span>
+                  </div>
+                </>
+              ) : (
+                <div className="call-btn-action-group">
                   <button
                     type="button"
                     className="call-ctrl-btn call-end-btn"
-                    onClick={endCall}
-                    title="End Call"
+                    onClick={callState === 'calling' ? endCall : rejectCall}
+                    title="Cancel Call"
                   >
                     <IconPhoneOff size={22} />
                   </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="call-ctrl-btn call-end-btn"
-                  onClick={callState === 'calling' ? endCall : rejectCall}
-                  title="Cancel Call"
-                >
-                  <IconPhoneOff size={22} />
-                </button>
+                  <span className="call-btn-label">Cancel</span>
+                </div>
               )}
             </div>
           </div>

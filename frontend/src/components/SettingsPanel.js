@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useChat } from '../context/ChatContext';
 import { userService } from '../services/api';
 import {
   IconSettings,
@@ -7,12 +9,15 @@ import {
   IconCheck,
   IconSun,
   IconMoon,
-  IconImage
+  IconImage,
+  IconLogOut
 } from './Icons';
 import LegalModals from './LegalModals';
 import '../styles/settingsPanel.css';
 
 export default function SettingsPanel({ user, onUserUpdated }) {
+  const { logout } = useChat();
+  const navigate = useNavigate();
   const [username, setUsername] = useState(user?.username || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
   const [saving, setSaving] = useState(false);
@@ -24,6 +29,11 @@ export default function SettingsPanel({ user, onUserUpdated }) {
   );
   const [showLegal, setShowLegal] = useState(false);
   const [legalTab, setLegalTab] = useState('privacy');
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   useEffect(() => {
     setUsername(user?.username || '');
@@ -212,6 +222,27 @@ export default function SettingsPanel({ user, onUserUpdated }) {
               >
                 <IconFileText size={14} />
                 <span>Terms of Service</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Account & Session Section */}
+          <div className="settings-section">
+            <h3 className="section-title">Account &amp; Session</h3>
+            <div className="account-session-card">
+              <div className="account-user-meta">
+                <span className="account-user-label">Signed in as</span>
+                <span className="account-user-val">{user?.username}</span>
+                <span className="account-user-email">{user?.email}</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary account-logout-btn"
+                onClick={handleLogout}
+                title="Sign out of Aura"
+              >
+                <IconLogOut size={14} />
+                <span>Sign Out</span>
               </button>
             </div>
           </div>
